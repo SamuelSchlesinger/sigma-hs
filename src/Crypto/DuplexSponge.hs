@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- |
 -- Module: Crypto.DuplexSponge
 --
@@ -28,29 +30,29 @@ import Data.ByteString (ByteString)
 -- Keccak duplex sponges, as described in Section 8 ("Duplex Sponge
 -- Interfaces") of the Fiat-Shamir draft.
 class DuplexSponge s where
-    -- | The base type over which the sponge operates. For byte-oriented
-    -- sponges (SHAKE128, Keccak duplex sponge), this is a byte.
-    type Unit s
+  -- | The base type over which the sponge operates. For byte-oriented
+  -- sponges (SHAKE128, Keccak duplex sponge), this is a byte.
+  type Unit s
 
-    -- | Initialize a new duplex sponge from an initialization vector.
-    --
-    -- Corresponds to @new(iv: bytes) -> DuplexSponge@ in Section 3 of the
-    -- Fiat-Shamir draft. The initialization vector is constructed as
-    -- described in Section 5 ("Generation of the Initialization Vector").
-    newDuplexSponge :: ByteString -> s
+  -- | Initialize a new duplex sponge from an initialization vector.
+  --
+  -- Corresponds to @new(iv: bytes) -> DuplexSponge@ in Section 3 of the
+  -- Fiat-Shamir draft. The initialization vector is constructed as
+  -- described in Section 5 ("Generation of the Initialization Vector").
+  newDuplexSponge :: ByteString -> s
 
-    -- | Absorb a single unit into the sponge, updating its internal state.
-    --
-    -- Corresponds to @absorb(self, values: list[Unit])@ in Section 3 of
-    -- the Fiat-Shamir draft. The absorb operation incrementally updates the
-    -- sponge's internal hash state.
-    absorbDuplexSponge :: s -> Unit s -> s
+  -- | Absorb a single unit into the sponge, updating its internal state.
+  --
+  -- Corresponds to @absorb(self, values: list[Unit])@ in Section 3 of
+  -- the Fiat-Shamir draft. The absorb operation incrementally updates the
+  -- sponge's internal hash state.
+  absorbDuplexSponge :: s -> Unit s -> s
 
-    -- | Squeeze a given number of units from the sponge, producing
-    -- unpredictable output and an updated sponge state.
-    --
-    -- Corresponds to @squeeze(self, length: int)@ in Section 3 of the
-    -- Fiat-Shamir draft. The squeeze operation produces variable-length
-    -- output that can be used as a digest, key stream, or verifier
-    -- challenge material.
-    squeezeDuplexSponge :: s -> Int -> ([Unit s], s)
+  -- | Squeeze a given number of units from the sponge, producing
+  -- unpredictable output and an updated sponge state.
+  --
+  -- Corresponds to @squeeze(self, length: int)@ in Section 3 of the
+  -- Fiat-Shamir draft. The squeeze operation produces variable-length
+  -- output that can be used as a digest, key stream, or verifier
+  -- challenge material.
+  squeezeDuplexSponge :: s -> Int -> ([Unit s], s)

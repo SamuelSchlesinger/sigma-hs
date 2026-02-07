@@ -11,9 +11,11 @@
 -- sparse, it is stored in Yale sparse matrix format using 'LinearCombination'
 -- entries that maintain index pairs rather than dense matrices.
 module Crypto.LinearMap
-  ( LinearCombination(..)
-  , LinearMap(..)
-  ) where
+  ( LinearCombination (..),
+    LinearMap (..),
+    LinearRelation (..),
+  )
+where
 
 -- | A single linear combination specifying which witness scalars and group
 -- elements participate in a multi-scalar multiplication, as defined in
@@ -27,11 +29,11 @@ data LinearCombination = LinearCombination
   { -- | Indices into the witness scalar array.
     --
     -- Corresponds to @scalar_indices@ in the spec.
-    scalarIndices :: [Int]
+    scalarIndices :: [Int],
     -- | Indices into the group element array stored in the 'LinearMap'.
     --
     -- Corresponds to @element_indices@ in the spec.
-  , elementIndices :: [Int]
+    elementIndices :: [Int]
   }
 
 -- | A linear map from witness scalars to group elements, as defined in
@@ -47,24 +49,29 @@ data LinearMap g = LinearMap
     -- multiplication.
     --
     -- Corresponds to @linear_combinations@ in the spec.
-    linearCombinations :: [LinearCombination]
+    linearCombinations :: [LinearCombination],
     -- | The group elements referenced by index from each
     -- 'LinearCombination'.
     --
     -- Corresponds to @group_elements@ in the spec.
-  , groupElements :: [g]
+    groupElements :: [g],
     -- | The number of witness scalars accepted by this map.
     --
     -- Corresponds to @num_scalars@ in the spec.
-  , numScalars :: Int
+    numScalars :: Int,
     -- | The number of group elements produced by this map.
     --
     -- Corresponds to @num_elements@ in the spec.
-  , numElements :: Int
+    numElements :: Int,
     -- | Evaluates the linear map on a witness, producing group elements.
     --
     -- Corresponds to @map(witness)@ in the spec. The function takes the
     -- map itself and the witness (as a list of group elements derived from
     -- scalars) and returns the image of the witness under the linear map.
-  , witnessToGroupElemMap :: (LinearMap g, [g]) -> [g]
+    witnessToGroupElemMap :: (LinearMap g, [g]) -> [g]
+  }
+
+data LinearRelation g = LinearRelation
+  { linearMap :: LinearMap g,
+    image :: [g]
   }
