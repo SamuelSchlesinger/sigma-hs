@@ -14,10 +14,11 @@ module Crypto.LinearMap
   ( LinearCombination(..)
   , LinearMap(..)
   , applyLinearMap
+  , LinearRelation(..)
+  , allocateScalars
   ) where
 
 import Crypto.PrimeOrderGroup
-import Crypto.FiniteField (Scalar(scalarSize))
 
 -- | A single linear combination specifying which witness scalars and group
 -- elements participate in a multi-scalar multiplication, as defined in
@@ -88,5 +89,13 @@ data LinearRelation g = LinearRelation
   }
 
 
-allocateScalars :: Group g => LinearRelation g -> Int -> [Int]
-allocateScalars lr n = scalarSize
+allocateScalars :: Group g => LinearRelation g -> Int -> (LinearRelation g, [Int])
+allocateScalars lr n =  
+    let lm   = linearMap lr in
+    let start  = numScalars lm in
+    let scalars  = take n [start ..] in
+    let lm'    = lm { numScalars = start + n } in
+    let lr'    = lr { linearMap = lm' }
+  in (lr', scalars)
+
+-- allocateElements :: Group g => LinearRelation g -> Int -> (LinearRelation g, [Int])
