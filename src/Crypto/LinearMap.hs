@@ -13,7 +13,10 @@
 module Crypto.LinearMap
   ( LinearCombination(..)
   , LinearMap(..)
+  , applyLinearMap
   ) where
+
+import Crypto.PrimeOrderGroup
 
 -- | A single linear combination specifying which witness scalars and group
 -- elements participate in a multi-scalar multiplication, as defined in
@@ -61,10 +64,19 @@ data LinearMap g = LinearMap
     --
     -- Corresponds to @num_elements@ in the spec.
   , numElements :: Int
-    -- | Evaluates the linear map on a witness, producing group elements.
-    --
-    -- Corresponds to @map(witness)@ in the spec. The function takes the
-    -- map itself and the witness (as a list of group elements derived from
-    -- scalars) and returns the image of the witness under the linear map.
-  , witnessToGroupElemMap :: (LinearMap g, [g]) -> [g]
   }
+
+-- | Evaluates the linear map on a witness, producing group elements.
+--
+-- Corresponds to @map(witness)@ in the spec. The function takes the
+-- map itself and the witness (as a list of group elements derived from
+-- scalars) and returns the image of the witness under the linear map.
+applyLinearMap  :: Group g => LinearMap g -> [GroupScalar g] -> [g]
+applyLinearMap lm ss = map (\lc -> applyLinearCombination lm lc ss) $ linearCombinations lm
+
+applyLinearCombination :: Group g => LinearMap g -> LinearCombination -> [GroupScalar g] -> g
+applyLinearCombination lm lc ss =
+  foldl groupAdd groupIdentity
+    [ groupScalarMul (groupElements lm !! ei) (ss !! si)
+    | (si, ei) <- zip (scalarIndices lc) (elementIndices lc)
+    ]
