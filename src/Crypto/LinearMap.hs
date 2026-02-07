@@ -1,3 +1,5 @@
+module Crypto.LinearMap where
+
 data LinearCombination
   = LinearCombination {scalarIndices :: [Int], elementIndices :: [Int]}
 
