@@ -1,0 +1,18 @@
+cabal-version:   3.12
+name:            sigma-hs
+version:         0.1.0.0
+license:         NONE
+author:          Samuel Schlesinger
+maintainer:      sgschlesinger@gmail.com
+build-type:      Simple
+extra-doc-files: CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  MyLib
+    build-depends:    base ^>=4.18.3.0
+    hs-source-dirs:   src
+    default-language: Haskell2010
