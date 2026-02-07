@@ -1,4 +1,4 @@
-cabal-version:   3.14.2
+cabal-version:   3.12
 name:            sigma-hs
 version:         0.1.0.0
 license:         NONE
