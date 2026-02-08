@@ -16,22 +16,35 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: true
+
     - uses: haskell-actions/setup@v2
       with:
-        ghc-version: '9.6.3'
+        ghc-version: '9.6'
         cabal-version: '3.14'
 
-    - name: Cache
-      uses: actions/cache@v3
-      env:
-        cache-name: cache-cabal
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Cabal
+      uses: actions/cache@v4
       with:
         path: ~/.cabal
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+        key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
+          ${{ runner.os }}-cabal-
+
+    - name: Cache Rust
+      uses: actions/cache@v4
+      with:
+        path: |
+          rust/sigma-ffi/target
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: ${{ runner.os }}-rust-${{ hashFiles('rust/sigma-ffi/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-rust-
 
     - name: Install dependencies
       run: |
