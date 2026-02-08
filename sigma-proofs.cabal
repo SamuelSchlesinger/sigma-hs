@@ -18,6 +18,9 @@ category:        Cryptography
 build-type:      Custom
 extra-doc-files: CHANGELOG.md
                  README.md
+extra-source-files: rust/sigma-ffi/Cargo.toml
+                    rust/sigma-ffi/Cargo.lock
+                    rust/sigma-ffi/src/lib.rs
 
 source-repository head
   type:     git
