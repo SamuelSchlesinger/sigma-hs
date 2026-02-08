@@ -72,11 +72,14 @@ test-suite sigma-proofs-test
                     , Test.Crypto.Sigma.Protocol
                     , Test.Crypto.Sigma.FiatShamir
                     , Test.Crypto.Sigma.CrossCompat
+                    , Test.Crypto.Sigma.Properties
     build-depends:    base          >=4.18 && <5
                     , sigma-proofs
                     , bytestring    >=0.11 && <0.13
                     , tasty         >=1.4  && <1.6
                     , tasty-hunit   >=0.10 && <0.11
+                    , hedgehog      >=1.2  && <1.6
+                    , tasty-hedgehog >=1.4 && <1.5
                     , vector        >=0.12 && <0.14
     hs-source-dirs:   test
     default-language: Haskell2010

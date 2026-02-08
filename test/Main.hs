@@ -8,6 +8,7 @@ import qualified Test.Crypto.Sigma.Keccak as Keccak
 import qualified Test.Crypto.Sigma.Protocol as Protocol
 import qualified Test.Crypto.Sigma.FiatShamir as FiatShamir
 import qualified Test.Crypto.Sigma.CrossCompat as CrossCompat
+import qualified Test.Crypto.Sigma.Properties as Properties
 
 main :: IO ()
 main = defaultMain $ testGroup "sigma-proofs"
@@ -17,4 +18,5 @@ main = defaultMain $ testGroup "sigma-proofs"
   , Protocol.tests
   , FiatShamir.tests
   , CrossCompat.tests
+  , Properties.tests
   ]
