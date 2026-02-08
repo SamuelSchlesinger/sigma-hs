@@ -29,11 +29,9 @@ tests = testGroup "Shake128"
           (out1, _) = squeezeDuplexSponge s 32
           (out2, _) = squeezeDuplexSponge s' 32
       assertBool "absorbing should change output" (out1 /= out2)
-  , testCase "squeeze does not mutate sponge" $ do
+  , testCase "squeeze advances state" $ do
       let s = newDuplexSponge "test-iv" :: Shake128Sponge
           (out1, s') = squeezeDuplexSponge s 32
           (out2, _) = squeezeDuplexSponge s' 32
-      -- Squeezing twice from the same state should give same result
-      -- because squeeze clones internally
-      out1 @?= out2
+      assertBool "consecutive squeezes should produce different output" (out1 /= out2)
   ]
