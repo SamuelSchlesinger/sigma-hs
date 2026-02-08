@@ -5,6 +5,7 @@ module Test.Crypto.Sigma.Curve25519 (tests) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified Data.ByteString as BS
 import qualified Data.Vector as V
 
 import Crypto.Sigma.Scalar
@@ -37,6 +38,18 @@ tests = testGroup "Curve25519"
       , testCase "serialization round-trip" $ do
           s <- scalarRandom @Ristretto255Scalar
           deserializeScalar (serializeScalar s) @?= Right s
+      , testCase "deserialization rejects wrong length" $ do
+          case deserializeScalar @Ristretto255Scalar (BS.replicate 31 0) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject 31-byte scalar"
+          case deserializeScalar @Ristretto255Scalar (BS.replicate 33 0) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject 33-byte scalar"
+      , testCase "deserialization rejects non-canonical encoding" $ do
+          -- All 0xFF bytes is far larger than the group order
+          case deserializeScalar @Ristretto255Scalar (BS.replicate 32 0xFF) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject non-canonical scalar (all 0xFF)"
       ]
   , testGroup "Group"
       [ testCase "generator /= identity" $
@@ -59,5 +72,21 @@ tests = testGroup "Curve25519"
           p <- groupRandom @Ristretto255Point
           p |+| groupIdentity @?= p
           groupIdentity |+| p @?= p
+      , testCase "deserialization rejects wrong length" $ do
+          case deserializeElement @Ristretto255Point (BS.replicate 31 0) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject 31-byte point"
+          case deserializeElement @Ristretto255Point (BS.replicate 33 0) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject 33-byte point"
+      , testCase "deserialization rejects invalid encoding" $ do
+          -- All 0xFF bytes is not a valid Ristretto255 point encoding
+          case deserializeElement @Ristretto255Point (BS.replicate 32 0xFF) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject invalid point encoding (all 0xFF)"
+          -- 0x01 followed by zeros is also not a valid encoding
+          case deserializeElement @Ristretto255Point (BS.singleton 1 <> BS.replicate 31 0) of
+            Left _ -> return ()
+            Right _ -> assertFailure "should reject invalid point encoding (0x01 prefix)"
       ]
   ]

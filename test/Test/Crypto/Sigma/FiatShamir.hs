@@ -41,6 +41,15 @@ buildDleqRelation bigH bigX bigY = buildLinearRelation_ $ do
 sponge :: Shake128Sponge
 sponge = makeIV "sigma-protocol-v1" "test-session"
 
+wrongSponge :: Shake128Sponge
+wrongSponge = makeIV "sigma-protocol-v1" "wrong-session"
+
+-- | Assert that a verification result is a rejection.
+assertRejects :: String -> Either a Bool -> Assertion
+assertRejects _ (Left _) = return ()
+assertRejects _ (Right False) = return ()
+assertRejects msg (Right True) = assertFailure msg
+
 tests :: TestTree
 tests = testGroup "FiatShamir"
   [ testCase "compact: dlog prove/verify round-trip" $ do
@@ -72,15 +81,87 @@ tests = testGroup "FiatShamir"
       case verifyBatchable @Ristretto255Point @Shake128Sponge sponge proof proofBytes of
         Left err -> assertFailure ("deserialization failed: " ++ show err)
         Right ok -> assertBool "batchable proof should verify" ok
-  , testCase "tampered proof fails verification" $ do
+  , testCase "tampered compact proof fails verification" $ do
       x <- scalarRandom @Ristretto255Scalar
       let bigX = groupGenerator |*| x
           lr = buildDlogRelation bigX
           proof = newSchnorrProof lr
       proofBytes <- prove @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
-      -- Flip a byte in the proof
-      let tampered = BS.take 10 proofBytes <> BS.singleton (BS.index proofBytes 10 + 1) <> BS.drop 11 proofBytes
-      case verify @Ristretto255Point @Shake128Sponge sponge proof tampered of
-        Left _err -> return () -- Deserialization failure is also a valid rejection
-        Right ok -> assertBool "tampered proof should not verify" (not ok)
+      -- Tamper in the response portion (after the 32-byte challenge)
+      let idx = 32 + 5
+          tampered = BS.take idx proofBytes <> BS.singleton (BS.index proofBytes idx + 1) <> BS.drop (idx + 1) proofBytes
+      assertRejects "tampered compact proof should not verify" $
+        verify @Ristretto255Point @Shake128Sponge sponge proof tampered
+  , testCase "tampered batchable proof fails verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
+      -- Tamper in the response portion (after the 32-byte commitment)
+      let idx = 32 + 5
+          tampered = BS.take idx proofBytes <> BS.singleton (BS.index proofBytes idx + 1) <> BS.drop (idx + 1) proofBytes
+      assertRejects "tampered batchable proof should not verify" $
+        verifyBatchable @Ristretto255Point @Shake128Sponge sponge proof tampered
+
+  -- ── Negative tests: wrong session ID ─────────────────────────────────
+
+  , testCase "REJECT: wrong session fails compact verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- prove @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
+      assertRejects "wrong session should fail compact verify" $
+        verify @Ristretto255Point @Shake128Sponge wrongSponge proof proofBytes
+  , testCase "REJECT: wrong session fails batchable verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
+      assertRejects "wrong session should fail batchable verify" $
+        verifyBatchable @Ristretto255Point @Shake128Sponge wrongSponge proof proofBytes
+
+  -- ── Negative tests: wrong public key ─────────────────────────────────
+
+  , testCase "REJECT: wrong key fails compact verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      y <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          bigY = groupGenerator |*| y
+          proofX = newSchnorrProof (buildDlogRelation bigX)
+          proofY = newSchnorrProof (buildDlogRelation bigY)
+      proofBytes <- prove @Ristretto255Point @Shake128Sponge sponge proofX (V.singleton x)
+      assertRejects "wrong key should fail compact verify" $
+        verify @Ristretto255Point @Shake128Sponge sponge proofY proofBytes
+  , testCase "REJECT: wrong key fails batchable verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      y <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          bigY = groupGenerator |*| y
+          proofX = newSchnorrProof (buildDlogRelation bigX)
+          proofY = newSchnorrProof (buildDlogRelation bigY)
+      proofBytes <- proveBatchable @Ristretto255Point @Shake128Sponge sponge proofX (V.singleton x)
+      assertRejects "wrong key should fail batchable verify" $
+        verifyBatchable @Ristretto255Point @Shake128Sponge sponge proofY proofBytes
+
+  -- ── Negative tests: proof format mismatch ────────────────────────────
+
+  , testCase "REJECT: batchable proof fails compact verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
+      assertRejects "batchable proof should fail compact verify" $
+        verify @Ristretto255Point @Shake128Sponge sponge proof proofBytes
+  , testCase "REJECT: compact proof fails batchable verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- prove @Ristretto255Point @Shake128Sponge sponge proof (V.singleton x)
+      assertRejects "compact proof should fail batchable verify" $
+        verifyBatchable @Ristretto255Point @Shake128Sponge sponge proof proofBytes
   ]

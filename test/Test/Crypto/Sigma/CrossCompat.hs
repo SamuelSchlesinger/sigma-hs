@@ -230,9 +230,32 @@ peekCSize p = do
 sessionId :: ByteString
 sessionId = "cross-compat-test-session"
 
+-- | A different session ID for negative tests
+wrongSessionId :: ByteString
+wrongSessionId = "wrong-session-id-for-test"
+
 -- | Create the Keccak sponge for sigma-hs
 keccakSponge :: KeccakSponge
 keccakSponge = makeIV protocolId sessionId
+
+-- | Keccak sponge initialized with the wrong session ID
+wrongKeccakSponge :: KeccakSponge
+wrongKeccakSponge = makeIV protocolId wrongSessionId
+
+-- | Tamper with a byte near the end of the proof (in the response portion),
+-- producing a proof that is likely still deserializable but should fail verification.
+tamperBytes :: ByteString -> ByteString
+tamperBytes bs =
+  let idx = BS.length bs - 5
+  in BS.take idx bs <> BS.singleton (BS.index bs idx + 1) <> BS.drop (idx + 1) bs
+
+-- | Assert that a verification result is a rejection, whether via
+-- deserialization failure or verification failure. Unlike silently
+-- accepting @Left _@, this documents the rejection path taken.
+assertRejects :: String -> Either a Bool -> Assertion
+assertRejects _ (Left _) = return ()
+assertRejects _ (Right False) = return ()
+assertRejects msg (Right True) = assertFailure msg
 
 tests :: TestTree
 tests = testGroup "CrossCompat"
@@ -368,4 +391,120 @@ tests = testGroup "CrossCompat"
 
       assertEqual "labels should be identical regardless of allocation order"
         (getInstanceLabel lrA) (getInstanceLabel lrB)
+
+  -- ── Negative tests: tampered proofs ──────────────────────────────────
+
+  , testCase "REJECT: hs-prove tampered -> rs-verify: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      result <- rsVerifyBatchableDlog groupGenerator bigX sessionId (tamperBytes proofBytes)
+      assertBool "sigma-rs should reject tampered batchable proof" (result /= 0)
+
+  , testCase "REJECT: rs-prove tampered -> hs-verify: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      rsResult <- rsProveBatchableDlog groupGenerator bigX x sessionId
+      case rsResult of
+        Left err -> assertFailure ("sigma-rs prove failed: " ++ show err)
+        Right proofBytes ->
+          assertRejects "sigma-hs should reject tampered batchable proof" $
+            verifyBatchable @Ristretto255Point @KeccakSponge keccakSponge proof (tamperBytes proofBytes)
+
+  , testCase "REJECT: hs-prove tampered -> rs-verify: dlog compact" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- prove @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      result <- rsVerifyCompactDlog groupGenerator bigX sessionId (tamperBytes proofBytes)
+      assertBool "sigma-rs should reject tampered compact proof" (result /= 0)
+
+  , testCase "REJECT: rs-prove tampered -> hs-verify: dlog compact" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      rsResult <- rsProveCompactDlog groupGenerator bigX x sessionId
+      case rsResult of
+        Left err -> assertFailure ("sigma-rs prove failed: " ++ show err)
+        Right proofBytes ->
+          assertRejects "sigma-hs should reject tampered compact proof" $
+            verify @Ristretto255Point @KeccakSponge keccakSponge proof (tamperBytes proofBytes)
+
+  -- ── Negative tests: wrong session ID ─────────────────────────────────
+
+  , testCase "REJECT: hs-prove -> rs-verify wrong session: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      result <- rsVerifyBatchableDlog groupGenerator bigX wrongSessionId proofBytes
+      assertBool "sigma-rs should reject proof with wrong session" (result /= 0)
+
+  , testCase "REJECT: rs-prove -> hs-verify wrong session: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      rsResult <- rsProveBatchableDlog groupGenerator bigX x sessionId
+      case rsResult of
+        Left err -> assertFailure ("sigma-rs prove failed: " ++ show err)
+        Right proofBytes ->
+          assertRejects "sigma-hs should reject proof with wrong session" $
+            verifyBatchable @Ristretto255Point @KeccakSponge wrongKeccakSponge proof proofBytes
+
+  -- ── Negative tests: wrong public key ─────────────────────────────────
+
+  , testCase "REJECT: hs-prove -> rs-verify wrong key: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      y <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          bigY = groupGenerator |*| y
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      -- Verify against wrong public key bigY
+      result <- rsVerifyBatchableDlog groupGenerator bigY sessionId proofBytes
+      assertBool "sigma-rs should reject proof for wrong key" (result /= 0)
+
+  , testCase "REJECT: rs-prove -> hs-verify wrong key: dlog batchable" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      y <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          bigY = groupGenerator |*| y
+          lrY = buildDlogRelation bigY
+          proofY = newSchnorrProof lrY
+      rsResult <- rsProveBatchableDlog groupGenerator bigX x sessionId
+      case rsResult of
+        Left err -> assertFailure ("sigma-rs prove failed: " ++ show err)
+        Right proofBytes ->
+          -- Verify with wrong relation (bigY instead of bigX)
+          assertRejects "sigma-hs should reject proof for wrong key" $
+            verifyBatchable @Ristretto255Point @KeccakSponge keccakSponge proofY proofBytes
+
+  -- ── Negative tests: proof format mismatch ────────────────────────────
+
+  , testCase "REJECT: hs-prove batchable -> rs-verify compact: dlog" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- proveBatchable @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      result <- rsVerifyCompactDlog groupGenerator bigX sessionId proofBytes
+      assertBool "sigma-rs should reject batchable proof verified as compact" (result /= 0)
+
+  , testCase "REJECT: hs-prove compact -> rs-verify batchable: dlog" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      proofBytes <- prove @Ristretto255Point @KeccakSponge keccakSponge proof (V.singleton x)
+      result <- rsVerifyBatchableDlog groupGenerator bigX sessionId proofBytes
+      assertBool "sigma-rs should reject compact proof verified as batchable" (result /= 0)
   ]

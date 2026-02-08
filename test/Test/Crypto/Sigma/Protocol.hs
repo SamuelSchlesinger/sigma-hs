@@ -76,4 +76,54 @@ tests = testGroup "Protocol"
       challenge <- scalarRandom @Ristretto255Scalar
       let commitment = simulateCommitment proof response challenge
       assertBool "simulated proof should verify" (verifier proof commitment challenge response)
+
+  -- ── Negative tests ───────────────────────────────────────────────────
+
+  , testCase "wrong challenge fails verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      (st, commitment) <- proverCommit proof (V.singleton x)
+      challenge <- scalarRandom @Ristretto255Scalar
+      challenge' <- scalarRandom @Ristretto255Scalar
+      let response = proverResponse proof st challenge
+      -- Verify with a different challenge than was used for the response
+      assertBool "wrong challenge should fail" (not (verifier proof commitment challenge' response))
+  , testCase "tampered response fails verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      (st, commitment) <- proverCommit proof (V.singleton x)
+      challenge <- scalarRandom @Ristretto255Scalar
+      let response = proverResponse proof st challenge
+      -- Add random noise to each scalar in the response
+      noise <- scalarRandom @Ristretto255Scalar
+      let badResponse = V.map (.+. noise) response
+      assertBool "tampered response should fail" (not (verifier proof commitment challenge badResponse))
+  , testCase "tampered commitment fails verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          lr = buildDlogRelation bigX
+          proof = newSchnorrProof lr
+      (st, commitment) <- proverCommit proof (V.singleton x)
+      challenge <- scalarRandom @Ristretto255Scalar
+      let response = proverResponse proof st challenge
+      -- Shift each element in the commitment by a random point
+      noise <- groupRandom @Ristretto255Point
+      let badCommitment = V.map (|+| noise) commitment
+      assertBool "tampered commitment should fail" (not (verifier proof badCommitment challenge response))
+  , testCase "proof for wrong relation fails verification" $ do
+      x <- scalarRandom @Ristretto255Scalar
+      y <- scalarRandom @Ristretto255Scalar
+      let bigX = groupGenerator |*| x
+          bigY = groupGenerator |*| y
+          proofX = newSchnorrProof (buildDlogRelation bigX)
+          proofY = newSchnorrProof (buildDlogRelation bigY)
+      (st, commitment) <- proverCommit proofX (V.singleton x)
+      challenge <- scalarRandom @Ristretto255Scalar
+      let response = proverResponse proofX st challenge
+      -- Verify against a different relation
+      assertBool "wrong relation should fail" (not (verifier proofY commitment challenge response))
   ]
