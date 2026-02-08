@@ -33,17 +33,15 @@ import Crypto.Sigma.Random (MonadRandom)
 import Crypto.Sigma.Scalar
 
 -- | Construct the initialization vector for the Fiat-Shamir sponge.
--- Per Section 5 of the Fiat-Shamir draft:
--- 1. Init sponge with 64 zero bytes
--- 2. Absorb length-prefixed protocol_id
--- 3. Absorb length-prefixed session_id
+-- Matches sigma-rs's @initialize_sponge@:
+-- 1. Use protocol_id directly as the sponge IV
+-- 2. Absorb length-prefixed session_id
 makeIV :: forall sponge. (DuplexSponge sponge, Unit sponge ~ Word8)
        => ByteString -> ByteString -> sponge
 makeIV protocolId sessionId =
-  let s0 = newDuplexSponge (BS.replicate 64 0)
-      s1 = absorbDuplexSponge s0 (BS.unpack (lengthPrefixed protocolId))
-      s2 = absorbDuplexSponge s1 (BS.unpack (lengthPrefixed sessionId))
-  in s2
+  let s0 = newDuplexSponge protocolId
+      s1 = absorbDuplexSponge s0 (BS.unpack (lengthPrefixed sessionId))
+  in s1
 
 -- | Initialize the codec by absorbing the instance label.
 initCodec :: (DuplexSponge sponge, Unit sponge ~ Word8)

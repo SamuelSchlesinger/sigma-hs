@@ -85,6 +85,95 @@ foreign import ccall unsafe "sigma_shake128_free"
 foreign import ccall unsafe "&sigma_shake128_free"
   sigma_shake128_free_funptr :: FunPtr (Ptr ShakeSponge -> IO ())
 
+-- Keccak FFI
+
+-- | Opaque type representing the Rust KeccakState.
+data KeccakState
+
+foreign import ccall unsafe "sigma_keccak_new"
+  sigma_keccak_new :: Ptr Word8 -> IO (Ptr KeccakState)
+
+foreign import ccall unsafe "sigma_keccak_clone_and_absorb"
+  sigma_keccak_clone_and_absorb :: Ptr KeccakState -> Ptr Word8 -> CSize -> IO (Ptr KeccakState)
+
+foreign import ccall unsafe "sigma_keccak_clone_and_squeeze"
+  sigma_keccak_clone_and_squeeze :: Ptr KeccakState -> CSize -> Ptr Word8 -> IO (Ptr KeccakState)
+
+foreign import ccall unsafe "sigma_keccak_free"
+  sigma_keccak_free :: Ptr KeccakState -> IO ()
+
+foreign import ccall unsafe "&sigma_keccak_free"
+  sigma_keccak_free_funptr :: FunPtr (Ptr KeccakState -> IO ())
+
+-- sigma-rs cross-compatibility FFI
+
+-- DLOG batchable
+foreign import ccall unsafe "sigma_rs_prove_batchable_dlog"
+  sigma_rs_prove_batchable_dlog
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> Ptr CSize
+    -> IO CInt
+
+foreign import ccall unsafe "sigma_rs_verify_batchable_dlog"
+  sigma_rs_verify_batchable_dlog
+    :: Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> CSize
+    -> IO CInt
+
+-- DLOG compact
+foreign import ccall unsafe "sigma_rs_prove_compact_dlog"
+  sigma_rs_prove_compact_dlog
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> Ptr CSize
+    -> IO CInt
+
+foreign import ccall unsafe "sigma_rs_verify_compact_dlog"
+  sigma_rs_verify_compact_dlog
+    :: Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> CSize
+    -> IO CInt
+
+-- DLEQ batchable
+foreign import ccall unsafe "sigma_rs_prove_batchable_dleq"
+  sigma_rs_prove_batchable_dleq
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> Ptr CSize
+    -> IO CInt
+
+foreign import ccall unsafe "sigma_rs_verify_batchable_dleq"
+  sigma_rs_verify_batchable_dleq
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> CSize
+    -> IO CInt
+
+-- DLEQ compact
+foreign import ccall unsafe "sigma_rs_prove_compact_dleq"
+  sigma_rs_prove_compact_dleq
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> Ptr CSize
+    -> IO CInt
+
+foreign import ccall unsafe "sigma_rs_verify_compact_dleq"
+  sigma_rs_verify_compact_dleq
+    :: Ptr Word8 -> Ptr Word8 -> Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> CSize
+    -> Ptr Word8 -> CSize
+    -> IO CInt
+
+-- Instance label
+foreign import ccall unsafe "sigma_rs_dlog_instance_label"
+  sigma_rs_dlog_instance_label
+    :: Ptr Word8 -> Ptr Word8
+    -> Ptr Word8 -> Ptr CSize
+    -> IO CInt
+
 -- Random FFI
 
 foreign import ccall unsafe "sigma_random_bytes"

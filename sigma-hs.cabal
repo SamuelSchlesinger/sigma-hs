@@ -28,6 +28,7 @@ library
                     , Crypto.Sigma.DuplexSponge
                     , Crypto.Sigma.FiatShamir
                     , Crypto.Sigma.Shake128
+                    , Crypto.Sigma.Keccak
                     , Crypto.Sigma.Curve25519.FFI
                     , Crypto.Sigma.Curve25519.Ristretto255
                     , Crypto.Sigma.Curve25519.Random
@@ -51,8 +52,10 @@ test-suite sigma-hs-test
     main-is:          Main.hs
     other-modules:    Test.Crypto.Sigma.Curve25519
                     , Test.Crypto.Sigma.Shake128
+                    , Test.Crypto.Sigma.Keccak
                     , Test.Crypto.Sigma.Protocol
                     , Test.Crypto.Sigma.FiatShamir
+                    , Test.Crypto.Sigma.CrossCompat
     build-depends:    base ^>=4.18.3.0
                     , sigma-hs
                     , bytestring

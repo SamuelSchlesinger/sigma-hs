@@ -32,6 +32,7 @@ module Crypto.Sigma.LinearMap
   ) where
 
 import Control.Monad.Trans.State.Strict (State, get, put, modify, runState)
+import Data.Bits ((.&.), shiftR)
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
 import qualified Data.Vector as V
@@ -214,22 +215,87 @@ setElements updates = modify $ \lr ->
 lrImageElements :: LinearRelation g -> V.Vector g
 lrImageElements lr = V.map (groupElements (lrLinearMap lr) V.!) (lrImage lr)
 
--- | Compute a canonical label for a linear relation, for use in
--- Fiat-Shamir domain separation. Serializes all group elements and
--- the sparse matrix structure.
+-- | Compute a canonical instance label for a linear relation, for use
+-- in Fiat-Shamir domain separation. Matches sigma-rs's
+-- @CanonicalLinearRelation::label()@.
+--
+-- Canonicalization rebuilds the group element list by walking equations
+-- in order: for each equation the RHS basis elements are emitted first,
+-- then the image element. Already-seen elements reuse their earlier
+-- index. This makes the label independent of the order in which the
+-- caller allocated elements.
+--
+-- Output format:
+--
+-- @
+-- [num_equations: u32 LE]
+-- per equation:
+--   [image_index: u32 LE]
+--   [num_terms: u32 LE]
+--   per term:
+--     [scalar_index: u32 LE]
+--     [group_index: u32 LE]
+-- [all canonical group elements concatenated]
+-- @
 getInstanceLabel :: Group g => LinearRelation g -> ByteString
 getInstanceLabel lr =
-  let lm = lrLinearMap lr
-      elems = BS.concat $ V.toList $ V.map serializeElement (groupElements lm)
-      image = BS.concat $ V.toList $ V.map (\i -> serializeElement (groupElements lm V.! i)) (lrImage lr)
-      combos = BS.concat $ V.toList $ V.map serializeLc (linearCombinations lm)
-  in elems <> image <> combos
-  where
-    serializeLc lc =
-      let si = BS.concat $ map (i2osp 4) $ V.toList (scalarIndices lc)
-          ei = BS.concat $ map (i2osp 4) $ V.toList (elementIndices lc)
-      in i2osp 4 (V.length (scalarIndices lc)) <> si <> ei
-    i2osp :: Int -> Int -> ByteString
-    i2osp n val =
-      let bytes = map (\i -> fromIntegral (val `div` (256 ^ (n - 1 - i)) `mod` 256)) [0..n-1 :: Int]
-      in BS.pack bytes
+  let lm   = lrLinearMap lr
+      orig = groupElements lm
+
+      -- Walk every equation; for each one, map RHS element indices then
+      -- the image index through the remapping table, appending unseen
+      -- elements to the canonical list as we go.
+      processEqs eqIdx mapping elems
+        | eqIdx >= V.length (linearCombinations lm) = ([], elems)
+        | otherwise =
+          let lc = linearCombinations lm V.! eqIdx
+
+              -- Map each RHS term's element index.
+              processTerms tIdx m es
+                | tIdx >= V.length (elementIndices lc) = ([], m, es)
+                | otherwise =
+                  let origIdx = elementIndices lc V.! tIdx
+                      sIdx    = scalarIndices  lc V.! tIdx
+                      (newIdx, m', es') = remap origIdx m es
+                      (rest, mFinal, esFinal) = processTerms (tIdx + 1) m' es'
+                  in ((sIdx, newIdx) : rest, mFinal, esFinal)
+
+              (terms, mapping1, elems1) = processTerms 0 mapping elems
+
+              -- Map the image element index.
+              origImgIdx = lrImage lr V.! eqIdx
+              (newImgIdx, mapping2, elems2) = remap origImgIdx mapping1 elems1
+
+              (restEqs, elemsFinal) = processEqs (eqIdx + 1) mapping2 elems2
+          in ((newImgIdx, terms) : restEqs, elemsFinal)
+
+      -- Look up an original index; if unseen, append its element and
+      -- record the new index.
+      remap origIdx m es =
+        case lookup origIdx m of
+          Just n  -> (n, m, es)
+          Nothing -> let n = length es
+                     in (n, (origIdx, n) : m, es ++ [orig V.! origIdx])
+
+      (canonEqs, canonElems) = processEqs 0 [] []
+
+      -- Serialize.
+      header  = u32le (length canonEqs)
+      eqBytes = BS.concat
+        [ u32le imgIdx
+          <> u32le (length terms)
+          <> BS.concat [ u32le si <> u32le gi | (si, gi) <- terms ]
+        | (imgIdx, terms) <- canonEqs
+        ]
+      elemBytes = BS.concat (map serializeElement canonElems)
+  in header <> eqBytes <> elemBytes
+
+-- | Encode an 'Int' as a 4-byte little-endian word.
+u32le :: Int -> ByteString
+u32le val =
+  let w = fromIntegral val :: Int
+  in BS.pack [ fromIntegral (w .&. 0xff)
+             , fromIntegral ((w `shiftR` 8) .&. 0xff)
+             , fromIntegral ((w `shiftR` 16) .&. 0xff)
+             , fromIntegral ((w `shiftR` 24) .&. 0xff)
+             ]

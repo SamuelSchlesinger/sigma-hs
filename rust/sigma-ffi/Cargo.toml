@@ -11,3 +11,6 @@ curve25519-dalek = { version = "4", features = ["group"] }
 sha3 = "0.10"
 digest = "0.10"
 rand = "0.8"
+keccak = "0.1"
+zerocopy = { version = "0.7", features = ["derive"] }
+sigma-proofs = { git = "https://github.com/mmaker/sigma-proofs", features = ["curve25519-dalek"] }
