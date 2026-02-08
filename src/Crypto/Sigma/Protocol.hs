@@ -7,6 +7,8 @@
 -- |
 -- Module: Crypto.Sigma.Protocol
 --
+-- __This library has not been independently audited. Use at your own risk.__
+--
 -- Core sigma protocol operations, as described in Section 2 of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --

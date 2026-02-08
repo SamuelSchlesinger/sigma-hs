@@ -8,6 +8,8 @@ description:
   sigma protocols and Fiat-Shamir. Includes Ristretto255 group and
   SHAKE128/Keccak sponge implementations backed by Rust FFI, and
   cross-compatibility tests against the sigma-rs reference.
+  .
+  This library has not been independently audited. Use at your own risk.
 license:         MIT
 license-file:    LICENSE
 author:          Samuel Schlesinger

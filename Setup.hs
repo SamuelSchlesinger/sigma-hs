@@ -10,8 +10,11 @@ import System.FilePath ((</>))
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
   { confHook = \(gpd, hbi) flags -> do
-      lbi <- confHook simpleUserHooks (gpd, hbi) flags
       cwd <- getCurrentDirectory
+      let manifestPath = cwd </> "rust" </> "sigma-ffi" </> "Cargo.toml"
+      -- Build the Rust FFI library before configure checks for it
+      callProcess "cargo" ["build", "--release", "--manifest-path", manifestPath]
+      lbi <- confHook simpleUserHooks (gpd, hbi) flags
       let absLibDir = cwd </> "rust" </> "sigma-ffi" </> "target" </> "release"
       -- Update extra-lib-dirs to use absolute path
       let pd = localPkgDescr lbi
@@ -23,9 +26,4 @@ main = defaultMainWithHooks simpleUserHooks
               lib' = lib { libBuildInfo = bi' }
               pd' = pd { library = Just lib' }
           return lbi { localPkgDescr = pd' }
-  , preBuild = \args buildFlags -> do
-      cwd <- getCurrentDirectory
-      let manifestPath = cwd </> "rust" </> "sigma-ffi" </> "Cargo.toml"
-      callProcess "cargo" ["build", "--release", "--manifest-path", manifestPath]
-      preBuild simpleUserHooks args buildFlags
   }

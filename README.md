@@ -1,5 +1,7 @@
 # sigma-proofs
 
+**This library has not been independently audited. Use at your own risk.**
+
 A Haskell implementation of zero-knowledge sigma protocols over prime-order
 elliptic curve groups, following the IETF CFRG drafts:
 

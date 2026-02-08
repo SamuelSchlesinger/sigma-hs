@@ -3,6 +3,8 @@
 -- |
 -- Module: Crypto.Sigma.Curve25519.Ristretto255
 --
+-- __This library has not been independently audited. Use at your own risk.__
+--
 -- Concrete 'Scalar' and 'Group' instances for the Ristretto255 prime-order
 -- group, backed by @curve25519-dalek@ via Rust FFI. Ristretto255 provides a
 -- prime-order group of order

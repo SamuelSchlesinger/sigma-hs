@@ -8,6 +8,8 @@
 -- |
 -- Module: Crypto.Sigma.FiatShamir
 --
+-- __This library has not been independently audited. Use at your own risk.__
+--
 -- Non-interactive Fiat-Shamir transformation for sigma protocols, as
 -- described in the
 -- [Fiat-Shamir draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/#go.draft-irtf-cfrg-fiat-shamir.html).
