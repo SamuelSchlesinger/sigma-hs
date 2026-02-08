@@ -41,12 +41,13 @@ instance DuplexSponge Shake128Sponge where
 
   squeezeDuplexSponge (Shake128Sponge fp) n = unsafePerformIO $ do
     withForeignPtr fp $ \spongePtr -> do
-      -- Squeeze output (internally clones so state unchanged)
       outFp <- mallocForeignPtrBytes n
       withForeignPtr outFp $ \outPtr ->
         sigma_shake128_squeeze_bytes spongePtr (fromIntegral n) outPtr
       let outBs = BSI.BS outFp n
-      -- Clone sponge for the returned state
-      clonedPtr <- sigma_shake128_clone spongePtr
-      clonedFp <- newForeignPtr sigma_shake128_free_funptr clonedPtr
-      return (BS.unpack outBs, Shake128Sponge clonedFp)
+      -- Advance state by absorbing the squeezed output, so that
+      -- consecutive squeezes produce different results.
+      advancedPtr <- BSU.unsafeUseAsCStringLen outBs $ \(dataPtr, dataLen) ->
+        sigma_shake128_clone_and_absorb spongePtr (castPtr dataPtr) (fromIntegral dataLen)
+      advancedFp <- newForeignPtr sigma_shake128_free_funptr advancedPtr
+      return (BS.unpack outBs, Shake128Sponge advancedFp)

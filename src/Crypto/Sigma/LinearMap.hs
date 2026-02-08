@@ -293,9 +293,8 @@ getInstanceLabel lr =
 -- | Encode an 'Int' as a 4-byte little-endian word.
 u32le :: Int -> ByteString
 u32le val =
-  let w = fromIntegral val :: Int
-  in BS.pack [ fromIntegral (w .&. 0xff)
-             , fromIntegral ((w `shiftR` 8) .&. 0xff)
-             , fromIntegral ((w `shiftR` 16) .&. 0xff)
-             , fromIntegral ((w `shiftR` 24) .&. 0xff)
-             ]
+  BS.pack [ fromIntegral (val .&. 0xff)
+          , fromIntegral ((val `shiftR` 8) .&. 0xff)
+          , fromIntegral ((val `shiftR` 16) .&. 0xff)
+          , fromIntegral ((val `shiftR` 24) .&. 0xff)
+          ]
