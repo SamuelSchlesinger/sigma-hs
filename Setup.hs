@@ -18,6 +18,6 @@ main = defaultMainWithHooks simpleUserHooks
       withLibLBI (localPkgDescr lbi) lbi $ \_ clbi -> do
         let bdir = cwd </> componentBuildDir lbi clbi
         createDirectoryIfMissing True bdir
-        copyFile (rustLibDir </> "libsigma_ffi.a") (bdir </> "libsigma_ffi.a")
+        copyFile (rustLibDir </> "libsigma_ffi.a") (bdir </> "libCsigma_ffi.a")
       return lbi
   }
