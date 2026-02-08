@@ -4,8 +4,9 @@ import Distribution.Types.BuildInfo (BuildInfo, extraLibDirs)
 import Distribution.Types.Library (Library, libBuildInfo)
 import Distribution.Types.PackageDescription (PackageDescription, library)
 import System.Process (callProcess)
-import System.Directory (getCurrentDirectory, makeAbsolute)
+import System.Directory (getCurrentDirectory, copyFile, createDirectoryIfMissing)
 import System.FilePath ((</>))
+import Data.IORef
 
 main :: IO ()
 main = defaultMainWithHooks simpleUserHooks
@@ -15,15 +16,25 @@ main = defaultMainWithHooks simpleUserHooks
       -- Build the Rust FFI library before configure checks for it
       callProcess "cargo" ["build", "--release", "--manifest-path", manifestPath]
       lbi <- confHook simpleUserHooks (gpd, hbi) flags
-      let absLibDir = cwd </> "rust" </> "sigma-ffi" </> "target" </> "release"
-      -- Update extra-lib-dirs to use absolute path
+      let rustLibDir = cwd </> "rust" </> "sigma-ffi" </> "target" </> "release"
+      -- Copy the native library into the component build directory so it
+      -- gets installed alongside the Haskell library and is available to
+      -- downstream packages.
+      buildDirRef <- newIORef Nothing
+      withLibLBI (localPkgDescr lbi) lbi $ \_ clbi -> do
+        let bdir = componentBuildDir lbi clbi
+        createDirectoryIfMissing True bdir
+        copyFile (rustLibDir </> "libsigma_ffi.a") (bdir </> "libsigma_ffi.a")
+        writeIORef buildDirRef (Just bdir)
+      mBuildDir <- readIORef buildDirRef
+      -- Update extra-lib-dirs to use the component build directory
       let pd = localPkgDescr lbi
-      case library pd of
-        Nothing -> return lbi
-        Just lib -> do
+      case (mBuildDir, library pd) of
+        (Just bdir, Just lib) -> do
           let bi = libBuildInfo lib
-              bi' = bi { extraLibDirs = absLibDir : filter (/= "rust/sigma-ffi/target/release") (extraLibDirs bi) }
+              bi' = bi { extraLibDirs = bdir : filter (/= "rust/sigma-ffi/target/release") (extraLibDirs bi) }
               lib' = lib { libBuildInfo = bi' }
               pd' = pd { library = Just lib' }
           return lbi { localPkgDescr = pd' }
+        _ -> return lbi
   }
