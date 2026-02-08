@@ -4,7 +4,7 @@
 -- |
 -- Module: Crypto.Sigma.Scalar
 --
--- The scalar field interface, as described in the "Scalar" subsection of
+-- The scalar field interface, as described in the /Scalar/ subsection of
 -- Section 4.1 ("Group abstraction") of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --
@@ -25,7 +25,7 @@ import Crypto.Sigma.Error (DeserializeError)
 import Crypto.Sigma.Random (MonadRandom)
 
 -- | An element of the scalar field associated with a prime-order group,
--- as defined in the "Scalar" subsection of Section 4.1 ("Group abstraction")
+-- as defined in the /Scalar/ subsection of Section 4.1 ("Group abstraction")
 -- of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --

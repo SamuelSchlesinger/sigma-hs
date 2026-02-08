@@ -23,7 +23,6 @@ import Crypto.Sigma.FiatShamir
 import Crypto.Sigma.Keccak (KeccakSponge)
 import Crypto.Sigma.Curve25519.FFI
 import Crypto.Sigma.Curve25519.Ristretto255
-import Crypto.Sigma.Curve25519.Random ()
 
 -- | Protocol ID matching sigma-rs: "ietf sigma proof linear relation" + 32 zero bytes
 protocolId :: ByteString

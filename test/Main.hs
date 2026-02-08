@@ -10,7 +10,7 @@ import qualified Test.Crypto.Sigma.FiatShamir as FiatShamir
 import qualified Test.Crypto.Sigma.CrossCompat as CrossCompat
 
 main :: IO ()
-main = defaultMain $ testGroup "sigma-hs"
+main = defaultMain $ testGroup "sigma-proofs"
   [ Curve25519.tests
   , Shake128.tests
   , Keccak.tests

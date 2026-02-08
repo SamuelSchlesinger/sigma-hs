@@ -3,8 +3,14 @@
 -- |
 -- Module: Crypto.Sigma.Keccak
 --
--- Keccak duplex sponge implementation backed by Rust FFI, matching
--- sigma-rs's KeccakDuplexSponge (Keccak-f[1600], RATE=136, CAPACITY=64).
+-- Keccak-f[1600] duplex sponge implementation backed by Rust FFI, matching
+-- sigma-rs's @KeccakDuplexSponge@ (RATE=136, CAPACITY=64 bytes), as
+-- described in Section 8 ("Duplex Sponge Interfaces") of the
+-- [Fiat-Shamir draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/#go.draft-irtf-cfrg-fiat-shamir.html).
+--
+-- The sponge state is an opaque Rust object managed via @ForeignPtr@.
+-- The initialization vector is padded or truncated to exactly 64 bytes
+-- (the capacity size) before being passed to the Rust constructor.
 module Crypto.Sigma.Keccak
   ( KeccakSponge(..)
   ) where

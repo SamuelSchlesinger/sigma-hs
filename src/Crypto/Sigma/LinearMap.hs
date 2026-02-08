@@ -115,6 +115,8 @@ data LinearRelation g = LinearRelation
 applyLinearMap :: Group g => LinearMap g -> V.Vector (GroupScalar g) -> V.Vector g
 applyLinearMap lm ss = V.map (\lc -> applyLinearCombination lm lc ss) $ linearCombinations lm
 
+-- | Evaluate a single 'LinearCombination' row against a witness, producing
+-- one group element via multi-scalar multiplication.
 applyLinearCombination :: Group g => LinearMap g -> LinearCombination -> V.Vector (GroupScalar g) -> g
 applyLinearCombination lm lc ss =
   let sIndices = scalarIndices lc

@@ -10,7 +10,6 @@ import qualified Data.Vector as V
 import Crypto.Sigma.Scalar
 import Crypto.Sigma.Group
 import Crypto.Sigma.Curve25519.Ristretto255
-import Crypto.Sigma.Curve25519.Random ()
 
 tests :: TestTree
 tests = testGroup "Curve25519"

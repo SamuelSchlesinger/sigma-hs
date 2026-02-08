@@ -8,8 +8,24 @@
 -- |
 -- Module: Crypto.Sigma.FiatShamir
 --
--- Non-interactive Fiat-Shamir transformation for sigma protocols.
--- Implements compact and batchable proof formats per the Fiat-Shamir draft.
+-- Non-interactive Fiat-Shamir transformation for sigma protocols, as
+-- described in the
+-- [Fiat-Shamir draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/#go.draft-irtf-cfrg-fiat-shamir.html).
+--
+-- The transformation replaces the verifier's random challenge with a hash
+-- of the transcript (instance label, commitment, etc.) computed via a
+-- duplex sponge, yielding a non-interactive proof.
+--
+-- Two proof formats are provided:
+--
+-- * __Compact__ ('prove' / 'verify'): the proof is @challenge || response@.
+--   Verification recomputes the commitment from the response and challenge,
+--   then checks that re-hashing produces the same challenge.
+--
+-- * __Batchable__ ('proveBatchable' / 'verifyBatchable'): the proof is
+--   @commitment || response@. Verification recomputes the challenge from
+--   the commitment and checks the sigma protocol relation directly. This
+--   format supports batch verification.
 module Crypto.Sigma.FiatShamir
   ( prove
   , verify
@@ -43,7 +59,8 @@ makeIV protocolId sessionId =
       s1 = absorbDuplexSponge s0 (BS.unpack (lengthPrefixed sessionId))
   in s1
 
--- | Initialize the codec by absorbing the instance label.
+-- | Initialize the Fiat-Shamir codec by absorbing the length-prefixed
+-- instance label into the sponge.
 initCodec :: (DuplexSponge sponge, Unit sponge ~ Word8)
           => sponge -> ByteString -> sponge
 initCodec sponge instanceLabel =
@@ -55,7 +72,8 @@ proverMessage :: (DuplexSponge sponge, Unit sponge ~ Word8, Group g)
 proverMessage sponge commitment =
   absorbDuplexSponge sponge (BS.unpack (serializeCommitment commitment))
 
--- | Squeeze a verifier challenge from the sponge.
+-- | Squeeze a verifier challenge from the sponge. Squeezes
+-- @scalarSize + 16@ bytes and reduces them to a near-uniform scalar.
 verifierChallenge :: forall s sponge. (DuplexSponge sponge, Unit sponge ~ Word8, Scalar s)
                   => sponge -> (s, sponge)
 verifierChallenge sponge =
@@ -147,11 +165,13 @@ verifyBatchable sponge proof proofBytes = do
 
 -- Helpers
 
--- | Big-endian encoding of an integer in n bytes (I2OSP).
+-- | Big-endian encoding of a non-negative integer in @n@ bytes, per
+-- RFC 3447 (I2OSP: Integer-to-Octet-String Primitive).
 i2osp :: Int -> Int -> ByteString
 i2osp n val =
   let bytes = map (\i -> fromIntegral (val `div` (256 ^ (n - 1 - i)) `mod` 256)) [0..n-1]
   in BS.pack bytes
 
+-- | Prepend a 4-byte big-endian length prefix to a 'ByteString'.
 lengthPrefixed :: ByteString -> ByteString
 lengthPrefixed bs = i2osp 4 (BS.length bs) <> bs

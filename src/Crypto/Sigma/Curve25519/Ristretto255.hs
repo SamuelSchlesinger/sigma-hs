@@ -3,8 +3,15 @@
 -- |
 -- Module: Crypto.Sigma.Curve25519.Ristretto255
 --
--- Ristretto255 group and scalar field implementations backed by
--- curve25519-dalek via Rust FFI.
+-- Concrete 'Scalar' and 'Group' instances for the Ristretto255 prime-order
+-- group, backed by @curve25519-dalek@ via Rust FFI. Ristretto255 provides a
+-- prime-order group of order
+-- @2^252 + 27742317777372353535851937790883648493@ built on top of
+-- Curve25519.
+--
+-- Both scalars and compressed points are represented as 32-byte
+-- 'ByteString' newtypes. All arithmetic is delegated to the Rust
+-- @sigma-ffi@ library through "Crypto.Sigma.Curve25519.FFI".
 module Crypto.Sigma.Curve25519.Ristretto255
   ( Ristretto255Scalar(..)
   , Ristretto255Point(..)
@@ -169,14 +176,18 @@ instance Group Ristretto255Point where
 
 -- Helpers
 
+-- | Use a 'ByteString' as a temporary @Ptr Word8@ for FFI calls.
 withBS :: ByteString -> (Ptr Word8 -> IO a) -> IO a
 withBS bs f = BSU.unsafeUseAsCString bs (f . castPtr)
 
+-- | Allocate @n@ bytes, run an action that fills the buffer, and return the
+-- result as a 'ByteString'.
 createBS :: Int -> (Ptr Word8 -> IO ()) -> IO ByteString
 createBS n f = do
   fp <- mallocForeignPtrBytes n
   withForeignPtr fp $ \p -> f p
   return (BSI.BS fp n)
 
+-- | Copy @n@ bytes from a raw pointer into a fresh 'ByteString'.
 copyToBS :: Ptr Word8 -> Int -> IO ByteString
 copyToBS p n = BS.packCStringLen (castPtr p, n)

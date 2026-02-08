@@ -12,7 +12,6 @@ import Crypto.Sigma.Group
 import Crypto.Sigma.LinearMap
 import Crypto.Sigma.Protocol
 import Crypto.Sigma.Curve25519.Ristretto255
-import Crypto.Sigma.Curve25519.Random ()
 
 -- | Build a discrete log proof: X = x * G
 buildDlogRelation :: Ristretto255Point -> LinearRelation Ristretto255Point

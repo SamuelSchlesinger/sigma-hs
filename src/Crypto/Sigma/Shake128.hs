@@ -3,7 +3,13 @@
 -- |
 -- Module: Crypto.Sigma.Shake128
 --
--- SHAKE128 duplex sponge implementation backed by Rust FFI.
+-- SHAKE128 duplex sponge implementation backed by Rust FFI, as described in
+-- Section 8 ("Duplex Sponge Interfaces") of the
+-- [Fiat-Shamir draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/#go.draft-irtf-cfrg-fiat-shamir.html).
+--
+-- The sponge state is an opaque Rust object managed via @ForeignPtr@.
+-- All operations (new, absorb, squeeze) clone the underlying state so that
+-- the Haskell interface remains purely functional.
 module Crypto.Sigma.Shake128
   ( Shake128Sponge(..)
   ) where

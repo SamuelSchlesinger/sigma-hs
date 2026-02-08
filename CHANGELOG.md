@@ -1,4 +1,4 @@
-# Revision history for sigma-hs
+# Revision history for sigma-proofs
 
 ## 0.1.0.0 -- YYYY-mm-dd
 

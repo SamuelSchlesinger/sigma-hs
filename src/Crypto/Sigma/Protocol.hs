@@ -170,6 +170,8 @@ deserializeResponse nScalars bs =
      then Left (DeserializeError "incorrect response length")
      else fmap V.fromList (traverse deserializeScalar chunks)
 
+-- | Split a 'ByteString' into chunks of exactly @size@ bytes.
+-- The last chunk may be shorter if the input is not evenly divisible.
 chunkBS :: Int -> ByteString -> [ByteString]
 chunkBS size bs
   | BS.null bs = []

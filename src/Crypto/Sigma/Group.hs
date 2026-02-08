@@ -6,7 +6,7 @@
 -- |
 -- Module: Crypto.Sigma.Group
 --
--- The prime-order elliptic curve group interface, as described in the "Group"
+-- The prime-order elliptic curve group interface, as described in the /Group/
 -- subsection of Section 4.1 ("Group abstraction") of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --
@@ -28,7 +28,7 @@ import Crypto.Sigma.Error (DeserializeError)
 import Crypto.Sigma.Random (MonadRandom)
 import Crypto.Sigma.Scalar (Scalar)
 
--- | A prime-order elliptic curve group, as defined in the "Group" subsection
+-- | A prime-order elliptic curve group, as defined in the /Group/ subsection
 -- of Section 4.1 ("Group abstraction") of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --
