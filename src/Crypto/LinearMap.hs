@@ -13,7 +13,10 @@
 module Crypto.LinearMap
   ( LinearCombination(..)
   , LinearMap(..)
+  , LinearRelation(..)
   , applyLinearMap
+  , allocateScalars
+  , allocateElements
   ) where
 
 import Crypto.PrimeOrderGroup
@@ -66,6 +69,25 @@ data LinearMap g = LinearMap
   , numElements :: Int
   }
 
+-- | A linear relation encodes a proof statement of the form
+-- @linear_map(witness) = image@, as defined in Section 2.2.3
+-- ("Statements for linear relations") of the
+-- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
+--
+-- It tracks the allocation state for scalar and element indices used
+-- when building up a 'LinearMap' incrementally.
+data LinearRelation = LinearRelation
+  { -- | The sparse matrix rows accumulated so far.
+    lrLinearCombinations :: [LinearCombination]
+    -- | Indices into the group element array representing the image
+    -- (left-hand sides of equations).
+  , lrImage :: [Int]
+    -- | The number of scalar variables allocated so far.
+  , lrNumScalars :: Int
+    -- | The number of group element slots allocated so far.
+  , lrNumElements :: Int
+  }
+
 -- | Evaluates the linear map on a witness, producing group elements.
 --
 -- Corresponds to @map(witness)@ in the spec. The function takes the
@@ -80,3 +102,15 @@ applyLinearCombination lm lc ss =
     [ groupScalarMul (groupElements lm !! ei) (ss !! si)
     | (si, ei) <- zip (scalarIndices lc) (elementIndices lc)
     ]
+
+allocateScalars :: LinearRelation -> Int -> (LinearRelation, [Int])
+allocateScalars linRel n =
+  let start = lrNumScalars linRel
+      indices = [start .. start + n - 1]
+  in (linRel { lrNumScalars = start + n }, indices)
+
+allocateElements :: LinearRelation -> Int -> (LinearRelation, [Int])
+allocateElements linRel n =
+  let start = lrNumElements linRel
+      indices = [start .. start + n - 1]
+  in (linRel { lrNumElements = start + n }, indices)
