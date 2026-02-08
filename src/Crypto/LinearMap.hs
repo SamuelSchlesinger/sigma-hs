@@ -15,8 +15,11 @@ module Crypto.LinearMap
   , LinearMap(..)
   , LinearRelation(..)
   , applyLinearMap
+  , emptyLinearRelation
   , allocateScalars
   , allocateElements
+  , appendEquation
+  , setElements
   ) where
 
 import Crypto.PrimeOrderGroup
@@ -74,18 +77,18 @@ data LinearMap g = LinearMap
 -- ("Statements for linear relations") of the
 -- [Sigma Protocols draft](https://mmaker.github.io/draft-irtf-cfrg-sigma-protocols/draft-irtf-cfrg-sigma-protocols.html).
 --
--- It tracks the allocation state for scalar and element indices used
--- when building up a 'LinearMap' incrementally.
-data LinearRelation = LinearRelation
-  { -- | The sparse matrix rows accumulated so far.
-    lrLinearCombinations :: [LinearCombination]
-    -- | Indices into the group element array representing the image
-    -- (left-hand sides of equations).
-  , lrImage :: [Int]
-    -- | The number of scalar variables allocated so far.
-  , lrNumScalars :: Int
-    -- | The number of group element slots allocated so far.
-  , lrNumElements :: Int
+-- It stores a 'LinearMap' being built incrementally and the image — the
+-- target group elements that the linear map must produce when applied to
+-- the witness.
+data LinearRelation g = LinearRelation
+  { -- | The linear map under construction.
+    --
+    -- Corresponds to @linear_map@ in the spec.
+    lrLinearMap :: LinearMap g
+    -- | The target group elements that the linear map must produce.
+    --
+    -- Corresponds to @image@ in the spec.
+  , lrImage :: [g]
   }
 
 -- | Evaluates the linear map on a witness, producing group elements.
@@ -103,14 +106,76 @@ applyLinearCombination lm lc ss =
     | (si, ei) <- zip (scalarIndices lc) (elementIndices lc)
     ]
 
-allocateScalars :: LinearRelation -> Int -> (LinearRelation, [Int])
-allocateScalars linRel n =
-  let start = lrNumScalars linRel
-      indices = [start .. start + n - 1]
-  in (linRel { lrNumScalars = start + n }, indices)
+-- | An empty 'LinearRelation' with no scalars, elements, or constraints
+-- allocated.
+emptyLinearRelation :: LinearRelation g
+emptyLinearRelation = LinearRelation
+  { lrLinearMap = LinearMap
+      { linearCombinations = []
+      , groupElements = []
+      , numScalars = 0
+      , numElements = 0
+      }
+  , lrImage = []
+  }
 
-allocateElements :: LinearRelation -> Int -> (LinearRelation, [Int])
-allocateElements linRel n =
-  let start = lrNumElements linRel
+-- | Allocate @n@ new scalar variables, returning the updated relation and
+-- the indices of the newly allocated scalars.
+--
+-- Corresponds to @allocate_scalars()@ in the spec.
+allocateScalars :: LinearRelation g -> Int -> (LinearRelation g, [Int])
+allocateScalars lr n =
+  let lm = lrLinearMap lr
+      start = numScalars lm
       indices = [start .. start + n - 1]
-  in (linRel { lrNumElements = start + n }, indices)
+      lm' = lm { numScalars = start + n }
+  in (lr { lrLinearMap = lm' }, indices)
+
+-- | Allocate @n@ new group element slots, returning the updated relation
+-- and the indices of the newly allocated slots. The slots are
+-- initialized to the group identity and should be filled using
+-- 'setElements'.
+--
+-- Corresponds to @allocate_elements()@ in the spec.
+allocateElements :: Group g => LinearRelation g -> Int -> (LinearRelation g, [Int])
+allocateElements lr n =
+  let lm = lrLinearMap lr
+      start = numElements lm
+      indices = [start .. start + n - 1]
+      lm' = lm { numElements = start + n
+                , groupElements = groupElements lm ++ replicate n groupIdentity
+                }
+  in (lr { lrLinearMap = lm' }, indices)
+
+-- | Append a constraint equation to the linear relation, stating that a
+-- particular linear combination of witness scalars and basis group
+-- elements must equal the given target group element.
+--
+-- The right-hand side is a list of @(scalarIndex, elementIndex)@ pairs
+-- describing the linear combination. The left-hand side is the target
+-- group element that the combination must produce.
+--
+-- Corresponds to @append_equation()@ in the spec.
+appendEquation :: LinearRelation g -> g -> [(Int, Int)] -> LinearRelation g
+appendEquation lr lhs rhs = lr
+  { lrLinearMap = lm { linearCombinations = linearCombinations lm ++ [lc] }
+  , lrImage = lrImage lr ++ [lhs]
+  }
+  where
+    lm = lrLinearMap lr
+    lc = LinearCombination
+      { scalarIndices = map fst rhs
+      , elementIndices = map snd rhs
+      }
+
+-- | Set group element values at the specified indices in the internal
+-- 'LinearMap'. These are the basis elements referenced by index from
+-- each 'LinearCombination'.
+--
+-- Corresponds to @set_elements()@ in the spec.
+setElements :: LinearRelation g -> [(Int, g)] -> LinearRelation g
+setElements lr updates = lr { lrLinearMap = lm { groupElements = newElems } }
+  where
+    lm = lrLinearMap lr
+    newElems = foldl setAt (groupElements lm) updates
+    setAt xs (i, x) = take i xs ++ [x] ++ drop (i + 1) xs
