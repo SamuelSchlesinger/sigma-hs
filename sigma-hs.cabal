@@ -1,18 +1,63 @@
-cabal-version:   3.12
+cabal-version:   3.0
 name:            sigma-hs
 version:         0.1.0.0
 license:         NONE
 author:          Samuel Schlesinger
 maintainer:      sgschlesinger@gmail.com
-build-type:      Simple
+build-type:      Custom
 extra-doc-files: CHANGELOG.md
+
+custom-setup
+  setup-depends: base ^>=4.18.3.0
+               , Cabal
+               , process
+               , directory
+               , filepath
 
 common warnings
     ghc-options: -Wall
 
 library
     import:           warnings
-    exposed-modules:  Crypto.FiniteField, Crypto.PrimeOrderGroup, Crypto.Sigma, Crypto.LinearMap, Crypto.Random, Crypto.DuplexSponge
-    build-depends:    base ^>=4.18.3.0, bytestring, transformers
+    exposed-modules:  Crypto.Sigma.Error
+                    , Crypto.Sigma.Scalar
+                    , Crypto.Sigma.Group
+                    , Crypto.Sigma.Protocol
+                    , Crypto.Sigma.LinearMap
+                    , Crypto.Sigma.Random
+                    , Crypto.Sigma.DuplexSponge
+                    , Crypto.Sigma.FiatShamir
+                    , Crypto.Sigma.Shake128
+                    , Crypto.Sigma.Curve25519.FFI
+                    , Crypto.Sigma.Curve25519.Ristretto255
+                    , Crypto.Sigma.Curve25519.Random
+    build-depends:    base ^>=4.18.3.0
+                    , bytestring
+                    , transformers
+                    , vector
     hs-source-dirs:   src
+    default-language: Haskell2010
+    extra-lib-dirs:   rust/sigma-ffi/target/release
+    extra-libraries:  sigma_ffi
+    if os(osx)
+      frameworks: Security
+      extra-libraries: System
+    if os(linux)
+      extra-libraries: pthread dl m
+
+test-suite sigma-hs-test
+    import:           warnings
+    type:             exitcode-stdio-1.0
+    main-is:          Main.hs
+    other-modules:    Test.Crypto.Sigma.Curve25519
+                    , Test.Crypto.Sigma.Shake128
+                    , Test.Crypto.Sigma.Protocol
+                    , Test.Crypto.Sigma.FiatShamir
+    build-depends:    base ^>=4.18.3.0
+                    , sigma-hs
+                    , bytestring
+                    , tasty
+                    , tasty-hunit
+                    , vector
+    hs-source-dirs:   test
     default-language: Haskell2010

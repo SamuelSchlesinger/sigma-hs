@@ -1,2 +1,3 @@
 dist-newstyle/
 .vscode
+rust/sigma-ffi/target/

@@ -1,0 +1,13 @@
+[package]
+name = "sigma-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+curve25519-dalek = { version = "4", features = ["group"] }
+sha3 = "0.10"
+digest = "0.10"
+rand = "0.8"

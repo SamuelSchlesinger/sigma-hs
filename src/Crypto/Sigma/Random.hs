@@ -1,5 +1,5 @@
 -- |
--- Module: Crypto.Random
+-- Module: Crypto.Sigma.Random
 --
 -- A minimal random byte generation interface for cryptographic operations.
 --
@@ -7,7 +7,7 @@
 -- operations (e.g. generating nonces, sampling random scalars) are not
 -- tied to 'IO'. Concrete instances can use a system CSPRNG, a
 -- deterministic PRNG for testing, or any other byte source.
-module Crypto.Random
+module Crypto.Sigma.Random
   ( MonadRandom(..)
   ) where
 

@@ -1,7 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- |
--- Module: Crypto.FiniteField
+-- Module: Crypto.Sigma.Scalar
 --
 -- The scalar field interface, as described in the "Scalar" subsection of
 -- Section 4.1 ("Group abstraction") of the
@@ -11,18 +12,17 @@
 -- group. They support field addition, field multiplication, and
 -- serialization to and from canonical byte representations. Scalars serve
 -- as witnesses in sigma protocols and as the domain of linear maps.
-module Crypto.FiniteField
+module Crypto.Sigma.Scalar
   ( Scalar(..)
-  , DeserializeError(..)
+  , (.+.)
+  , (.-.)
+  , (.*.)
   ) where
 
 import Data.ByteString (ByteString)
-import Data.Proxy (Proxy)
 
-import Crypto.Random (MonadRandom)
-
-data DeserializeError = DeserializeError String
-  deriving (Show, Eq)
+import Crypto.Sigma.Error (DeserializeError)
+import Crypto.Sigma.Random (MonadRandom)
 
 -- | An element of the scalar field associated with a prime-order group,
 -- as defined in the "Scalar" subsection of Section 4.1 ("Group abstraction")
@@ -50,6 +50,15 @@ class Eq s => Scalar s where
   -- infix notation).
   scalarMul :: s -> s -> s
 
+  -- | Additive inverse in the scalar field.
+  scalarNeg :: s -> s
+
+  -- | Field subtraction.
+  --
+  -- Default: @scalarSub a b = scalarAdd a (scalarNeg b)@
+  scalarSub :: s -> s -> s
+  scalarSub a b = scalarAdd a (scalarNeg b)
+
   -- | Returns an element sampled uniformly at random from the scalar field.
   --
   -- Corresponds to @random()@ in the spec.
@@ -58,7 +67,7 @@ class Eq s => Scalar s where
   -- | Size in bytes of a single serialized scalar.
   --
   -- Corresponds to @Ns@ in the spec.
-  scalarSize :: Proxy s -> Int
+  scalarSize :: Int
 
   -- | Serialize a scalar to its canonical byte representation.
   --
@@ -73,3 +82,22 @@ class Eq s => Scalar s where
   -- Corresponds to @deserialize(buffer)@ in the spec, specialized to a
   -- single scalar.
   deserializeScalar :: ByteString -> Either DeserializeError s
+
+  -- | Reduce uniform bytes to a scalar. Input should be at least
+  -- @scalarSize + 16@ bytes for near-uniform distribution.
+  scalarFromUniformBytes :: ByteString -> s
+
+infixl 6 .+.
+-- | Scalar field addition. Synonym for 'scalarAdd'.
+(.+.) :: Scalar s => s -> s -> s
+(.+.) = scalarAdd
+
+infixl 6 .-.
+-- | Scalar field subtraction. Synonym for 'scalarSub'.
+(.-.) :: Scalar s => s -> s -> s
+(.-.) = scalarSub
+
+infixl 7 .*.
+-- | Scalar field multiplication. Synonym for 'scalarMul'.
+(.*.) :: Scalar s => s -> s -> s
+(.*.) = scalarMul

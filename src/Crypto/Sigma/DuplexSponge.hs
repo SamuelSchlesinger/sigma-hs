@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- |
--- Module: Crypto.DuplexSponge
+-- Module: Crypto.Sigma.DuplexSponge
 --
 -- The duplex sponge interface, as described in Section 3 ("The Duplex Sponge
 -- Interface") of the
@@ -17,7 +17,7 @@
 -- transformation, which compiles an interactive sigma protocol into a
 -- non-interactive one by replacing the verifier's random challenges with
 -- hash outputs.
-module Crypto.DuplexSponge where
+module Crypto.Sigma.DuplexSponge where
 
 import Data.ByteString (ByteString)
 
@@ -41,12 +41,12 @@ class DuplexSponge s where
     -- described in Section 5 ("Generation of the Initialization Vector").
     newDuplexSponge :: ByteString -> s
 
-    -- | Absorb a single unit into the sponge, updating its internal state.
+    -- | Absorb a list of units into the sponge, updating its internal state.
     --
     -- Corresponds to @absorb(self, values: list[Unit])@ in Section 3 of
     -- the Fiat-Shamir draft. The absorb operation incrementally updates the
     -- sponge's internal hash state.
-    absorbDuplexSponge :: s -> Unit s -> s
+    absorbDuplexSponge :: s -> [Unit s] -> s
 
     -- | Squeeze a given number of units from the sponge, producing
     -- unpredictable output and an updated sponge state.

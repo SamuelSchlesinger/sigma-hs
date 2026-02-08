@@ -1,5 +1,5 @@
 -- |
--- Module: Crypto.LinearMap
+-- Module: Crypto.Sigma.LinearMap
 --
 -- The linear map interface, as described in Section 2.2.2 ("Linear map") of
 -- the
@@ -14,21 +14,29 @@
 -- The 'LinearRelation' building functions ('allocateScalars',
 -- 'allocateElements', 'appendEquation', 'setElements') use the 'State'
 -- monad to thread the relation being constructed.
-module Crypto.LinearMap
+module Crypto.Sigma.LinearMap
   ( LinearCombination(..)
   , LinearMap(..)
   , LinearRelation(..)
   , applyLinearMap
+  , numConstraints
   , emptyLinearRelation
+  , buildLinearRelation
+  , buildLinearRelation_
   , allocateScalars
   , allocateElements
   , appendEquation
   , setElements
+  , lrImageElements
+  , getInstanceLabel
   ) where
 
-import Control.Monad.Trans.State.Strict (State, get, put, modify)
+import Control.Monad.Trans.State.Strict (State, get, put, modify, runState)
+import qualified Data.ByteString as BS
+import Data.ByteString (ByteString)
+import qualified Data.Vector as V
 
-import Crypto.PrimeOrderGroup
+import Crypto.Sigma.Group
 
 -- | A single linear combination specifying which witness scalars and group
 -- elements participate in a multi-scalar multiplication, as defined in
@@ -42,12 +50,12 @@ data LinearCombination = LinearCombination
   { -- | Indices into the witness scalar array.
     --
     -- Corresponds to @scalar_indices@ in the spec.
-    scalarIndices :: [Int]
+    scalarIndices :: !(V.Vector Int)
     -- | Indices into the group element array stored in the 'LinearMap'.
     --
     -- Corresponds to @element_indices@ in the spec.
-  , elementIndices :: [Int]
-  }
+  , elementIndices :: !(V.Vector Int)
+  } deriving (Show)
 
 -- | A linear map from witness scalars to group elements, as defined in
 -- Section 2.2.2 ("Linear map") of the
@@ -62,21 +70,21 @@ data LinearMap g = LinearMap
     -- multiplication.
     --
     -- Corresponds to @linear_combinations@ in the spec.
-    linearCombinations :: [LinearCombination]
+    linearCombinations :: !(V.Vector LinearCombination)
     -- | The group elements referenced by index from each
     -- 'LinearCombination'.
     --
     -- Corresponds to @group_elements@ in the spec.
-  , groupElements :: [g]
+  , groupElements :: !(V.Vector g)
     -- | The number of witness scalars accepted by this map.
     --
     -- Corresponds to @num_scalars@ in the spec.
-  , numScalars :: Int
+  , numScalars :: !Int
     -- | The number of group elements produced by this map.
     --
     -- Corresponds to @num_elements@ in the spec.
-  , numElements :: Int
-  }
+  , numElements :: !Int
+  } deriving (Show)
 
 -- | A linear relation encodes a proof statement of the form
 -- @linear_map(witness) = image@, as defined in Section 2.2.3
@@ -90,51 +98,67 @@ data LinearRelation g = LinearRelation
   { -- | The linear map under construction.
     --
     -- Corresponds to @linear_map@ in the spec.
-    lrLinearMap :: LinearMap g
-    -- | The target group elements that the linear map must produce.
+    lrLinearMap :: !(LinearMap g)
+    -- | Indices into @groupElements@ of the linear map, representing the
+    -- target group elements that the linear map must produce.
     --
     -- Corresponds to @image@ in the spec.
-  , lrImage :: [g]
-  }
+  , lrImage :: !(V.Vector Int)
+  } deriving (Show)
 
 -- | Evaluates the linear map on a witness, producing group elements.
 --
 -- Corresponds to @map(witness)@ in the spec. The function takes the
--- map itself and the witness (as a list of group elements derived from
--- scalars) and returns the image of the witness under the linear map.
-applyLinearMap  :: Group g => LinearMap g -> [GroupScalar g] -> [g]
-applyLinearMap lm ss = map (\lc -> applyLinearCombination lm lc ss) $ linearCombinations lm
+-- map itself and the witness (as a vector of scalars) and returns the
+-- image of the witness under the linear map.
+applyLinearMap :: Group g => LinearMap g -> V.Vector (GroupScalar g) -> V.Vector g
+applyLinearMap lm ss = V.map (\lc -> applyLinearCombination lm lc ss) $ linearCombinations lm
 
-applyLinearCombination :: Group g => LinearMap g -> LinearCombination -> [GroupScalar g] -> g
+applyLinearCombination :: Group g => LinearMap g -> LinearCombination -> V.Vector (GroupScalar g) -> g
 applyLinearCombination lm lc ss =
-  foldl groupAdd groupIdentity
-    [ groupScalarMul (groupElements lm !! ei) (ss !! si)
-    | (si, ei) <- zip (scalarIndices lc) (elementIndices lc)
-    ]
+  let sIndices = scalarIndices lc
+      eIndices = elementIndices lc
+      scalars = V.map (ss V.!) sIndices
+      elements = V.map (groupElements lm V.!) eIndices
+  in msm scalars elements
+
+-- | The number of constraint equations in a linear map.
+numConstraints :: LinearMap g -> Int
+numConstraints = V.length . linearCombinations
 
 -- | An empty 'LinearRelation' with no scalars, elements, or constraints
 -- allocated.
 emptyLinearRelation :: LinearRelation g
 emptyLinearRelation = LinearRelation
   { lrLinearMap = LinearMap
-      { linearCombinations = []
-      , groupElements = []
+      { linearCombinations = V.empty
+      , groupElements = V.empty
       , numScalars = 0
       , numElements = 0
       }
-  , lrImage = []
+  , lrImage = V.empty
   }
+
+-- | Run a 'LinearRelation' builder from an empty relation, returning
+-- both the builder's result and the final relation.
+buildLinearRelation :: State (LinearRelation g) a -> (a, LinearRelation g)
+buildLinearRelation = flip runState emptyLinearRelation
+
+-- | Run a 'LinearRelation' builder from an empty relation, discarding
+-- the builder's result.
+buildLinearRelation_ :: State (LinearRelation g) a -> LinearRelation g
+buildLinearRelation_ = snd . buildLinearRelation
 
 -- | Allocate @n@ new scalar variables, returning the indices of the
 -- newly allocated scalars.
 --
 -- Corresponds to @allocate_scalars()@ in the spec.
-allocateScalars :: Int -> State (LinearRelation g) [Int]
+allocateScalars :: Int -> State (LinearRelation g) (V.Vector Int)
 allocateScalars n = do
   lr <- get
   let lm = lrLinearMap lr
       start = numScalars lm
-      indices = [start .. start + n - 1]
+      indices = V.fromList [start .. start + n - 1]
   put lr { lrLinearMap = lm { numScalars = start + n } }
   return indices
 
@@ -143,36 +167,36 @@ allocateScalars n = do
 -- and should be filled using 'setElements'.
 --
 -- Corresponds to @allocate_elements()@ in the spec.
-allocateElements :: Group g => Int -> State (LinearRelation g) [Int]
+allocateElements :: Group g => Int -> State (LinearRelation g) (V.Vector Int)
 allocateElements n = do
   lr <- get
   let lm = lrLinearMap lr
       start = numElements lm
-      indices = [start .. start + n - 1]
+      indices = V.fromList [start .. start + n - 1]
       lm' = lm { numElements = start + n
-                , groupElements = groupElements lm ++ replicate n groupIdentity
+                , groupElements = groupElements lm V.++ V.replicate n groupIdentity
                 }
   put lr { lrLinearMap = lm' }
   return indices
 
 -- | Append a constraint equation to the linear relation, stating that a
 -- particular linear combination of witness scalars and basis group
--- elements must equal the given target group element.
+-- elements must equal the group element at the given index.
 --
 -- The right-hand side is a list of @(scalarIndex, elementIndex)@ pairs
--- describing the linear combination. The left-hand side is the target
--- group element that the combination must produce.
+-- describing the linear combination. The left-hand side is an index into
+-- the @groupElements@ array.
 --
 -- Corresponds to @append_equation()@ in the spec.
-appendEquation :: g -> [(Int, Int)] -> State (LinearRelation g) ()
-appendEquation lhs rhs = modify $ \lr ->
+appendEquation :: Int -> [(Int, Int)] -> State (LinearRelation g) ()
+appendEquation lhsIdx rhs = modify $ \lr ->
   let lm = lrLinearMap lr
       lc = LinearCombination
-        { scalarIndices = map fst rhs
-        , elementIndices = map snd rhs
+        { scalarIndices = V.fromList (map fst rhs)
+        , elementIndices = V.fromList (map snd rhs)
         }
-  in lr { lrLinearMap = lm { linearCombinations = linearCombinations lm ++ [lc] }
-        , lrImage = lrImage lr ++ [lhs]
+  in lr { lrLinearMap = lm { linearCombinations = V.snoc (linearCombinations lm) lc }
+        , lrImage = V.snoc (lrImage lr) lhsIdx
         }
 
 -- | Set group element values at the specified indices in the internal
@@ -183,6 +207,29 @@ appendEquation lhs rhs = modify $ \lr ->
 setElements :: [(Int, g)] -> State (LinearRelation g) ()
 setElements updates = modify $ \lr ->
   let lm = lrLinearMap lr
-      newElems = foldl setAt (groupElements lm) updates
-      setAt xs (i, x) = take i xs ++ [x] ++ drop (i + 1) xs
+      newElems = groupElements lm V.// updates
   in lr { lrLinearMap = lm { groupElements = newElems } }
+
+-- | Resolve image indices to actual group elements.
+lrImageElements :: LinearRelation g -> V.Vector g
+lrImageElements lr = V.map (groupElements (lrLinearMap lr) V.!) (lrImage lr)
+
+-- | Compute a canonical label for a linear relation, for use in
+-- Fiat-Shamir domain separation. Serializes all group elements and
+-- the sparse matrix structure.
+getInstanceLabel :: Group g => LinearRelation g -> ByteString
+getInstanceLabel lr =
+  let lm = lrLinearMap lr
+      elems = BS.concat $ V.toList $ V.map serializeElement (groupElements lm)
+      image = BS.concat $ V.toList $ V.map (\i -> serializeElement (groupElements lm V.! i)) (lrImage lr)
+      combos = BS.concat $ V.toList $ V.map serializeLc (linearCombinations lm)
+  in elems <> image <> combos
+  where
+    serializeLc lc =
+      let si = BS.concat $ map (i2osp 4) $ V.toList (scalarIndices lc)
+          ei = BS.concat $ map (i2osp 4) $ V.toList (elementIndices lc)
+      in i2osp 4 (V.length (scalarIndices lc)) <> si <> ei
+    i2osp :: Int -> Int -> ByteString
+    i2osp n val =
+      let bytes = map (\i -> fromIntegral (val `div` (256 ^ (n - 1 - i)) `mod` 256)) [0..n-1 :: Int]
+      in BS.pack bytes
