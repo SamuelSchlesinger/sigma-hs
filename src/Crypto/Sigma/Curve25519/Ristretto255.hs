@@ -81,6 +81,11 @@ instance Scalar Ristretto255Scalar where
       out <- createBS 32 (\po -> sigma_scalar_neg pa po)
       return (Ristretto255Scalar out)
 
+  scalarInvert (Ristretto255Scalar a) = unsafePerformIO $
+    withBS a $ \pa -> do
+      out <- createBS 32 (\po -> sigma_scalar_invert pa po)
+      return (Ristretto255Scalar out)
+
   scalarRandom = do
     wide <- getRandomBytes 64
     return $ unsafePerformIO $

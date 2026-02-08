@@ -83,6 +83,9 @@ class Eq s => Scalar s where
   -- single scalar.
   deserializeScalar :: ByteString -> Either DeserializeError s
 
+  -- | Multiplicative inverse in the scalar field (constant-time).
+  scalarInvert :: s -> s
+
   -- | Reduce uniform bytes to a scalar. Input should be at least
   -- @scalarSize + 16@ bytes for near-uniform distribution.
   scalarFromUniformBytes :: ByteString -> s

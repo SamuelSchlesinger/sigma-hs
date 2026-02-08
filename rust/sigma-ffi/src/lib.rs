@@ -43,6 +43,13 @@ pub unsafe extern "C" fn sigma_scalar_neg(a: *const u8, out: *mut u8) {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn sigma_scalar_invert(a: *const u8, out: *mut u8) {
+    let sa = read_scalar(a);
+    let result = sa.invert();
+    std::ptr::copy_nonoverlapping(result.as_bytes().as_ptr(), out, 32);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sigma_scalar_eq(a: *const u8, b: *const u8) -> i32 {
     let sa = read_scalar(a);
     let sb = read_scalar(b);

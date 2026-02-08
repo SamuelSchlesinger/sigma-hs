@@ -39,6 +39,10 @@ foreign import ccall unsafe "sigma_scalar_mul"
 foreign import ccall unsafe "sigma_scalar_neg"
   sigma_scalar_neg :: Ptr Word8 -> Ptr Word8 -> IO ()
 
+-- | Compute the multiplicative inverse of a 32-byte scalar (constant-time).
+foreign import ccall unsafe "sigma_scalar_invert"
+  sigma_scalar_invert :: Ptr Word8 -> Ptr Word8 -> IO ()
+
 -- | Compare two 32-byte scalars for equality. Returns 1 if equal, 0 otherwise.
 foreign import ccall unsafe "sigma_scalar_eq"
   sigma_scalar_eq :: Ptr Word8 -> Ptr Word8 -> IO CInt
