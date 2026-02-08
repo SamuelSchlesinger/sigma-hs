@@ -21,6 +21,7 @@ import Data.ByteString (ByteString)
 import Data.Proxy (Proxy)
 
 import Crypto.FiniteField (Scalar, DeserializeError)
+import Crypto.Random (MonadRandom)
 
 -- | A prime-order elliptic curve group, as defined in the "Group" subsection
 -- of Section 4.1 ("Group abstraction") of the
@@ -56,7 +57,7 @@ class (Eq g, Scalar (GroupScalar g)) => Group g where
   -- | Returns an element sampled uniformly at random from the group.
   --
   -- Corresponds to @random()@ in the spec.
-  groupRandom :: IO g
+  groupRandom :: MonadRandom m => m g
 
   -- | Elliptic curve addition of two group elements.
   --

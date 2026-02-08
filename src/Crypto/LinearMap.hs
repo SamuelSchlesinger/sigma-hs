@@ -10,6 +10,10 @@
 -- using elliptic curve scalar multiplication. Since the matrix is oftentimes
 -- sparse, it is stored in Yale sparse matrix format using 'LinearCombination'
 -- entries that maintain index pairs rather than dense matrices.
+--
+-- The 'LinearRelation' building functions ('allocateScalars',
+-- 'allocateElements', 'appendEquation', 'setElements') use the 'State'
+-- monad to thread the relation being constructed.
 module Crypto.LinearMap
   ( LinearCombination(..)
   , LinearMap(..)
@@ -21,6 +25,8 @@ module Crypto.LinearMap
   , appendEquation
   , setElements
   ) where
+
+import Control.Monad.Trans.State.Strict (State, get, put, modify)
 
 import Crypto.PrimeOrderGroup
 
@@ -119,33 +125,35 @@ emptyLinearRelation = LinearRelation
   , lrImage = []
   }
 
--- | Allocate @n@ new scalar variables, returning the updated relation and
--- the indices of the newly allocated scalars.
+-- | Allocate @n@ new scalar variables, returning the indices of the
+-- newly allocated scalars.
 --
 -- Corresponds to @allocate_scalars()@ in the spec.
-allocateScalars :: LinearRelation g -> Int -> (LinearRelation g, [Int])
-allocateScalars lr n =
+allocateScalars :: Int -> State (LinearRelation g) [Int]
+allocateScalars n = do
+  lr <- get
   let lm = lrLinearMap lr
       start = numScalars lm
       indices = [start .. start + n - 1]
-      lm' = lm { numScalars = start + n }
-  in (lr { lrLinearMap = lm' }, indices)
+  put lr { lrLinearMap = lm { numScalars = start + n } }
+  return indices
 
--- | Allocate @n@ new group element slots, returning the updated relation
--- and the indices of the newly allocated slots. The slots are
--- initialized to the group identity and should be filled using
--- 'setElements'.
+-- | Allocate @n@ new group element slots, returning the indices of the
+-- newly allocated slots. The slots are initialized to the group identity
+-- and should be filled using 'setElements'.
 --
 -- Corresponds to @allocate_elements()@ in the spec.
-allocateElements :: Group g => LinearRelation g -> Int -> (LinearRelation g, [Int])
-allocateElements lr n =
+allocateElements :: Group g => Int -> State (LinearRelation g) [Int]
+allocateElements n = do
+  lr <- get
   let lm = lrLinearMap lr
       start = numElements lm
       indices = [start .. start + n - 1]
       lm' = lm { numElements = start + n
                 , groupElements = groupElements lm ++ replicate n groupIdentity
                 }
-  in (lr { lrLinearMap = lm' }, indices)
+  put lr { lrLinearMap = lm' }
+  return indices
 
 -- | Append a constraint equation to the linear relation, stating that a
 -- particular linear combination of witness scalars and basis group
@@ -156,26 +164,25 @@ allocateElements lr n =
 -- group element that the combination must produce.
 --
 -- Corresponds to @append_equation()@ in the spec.
-appendEquation :: LinearRelation g -> g -> [(Int, Int)] -> LinearRelation g
-appendEquation lr lhs rhs = lr
-  { lrLinearMap = lm { linearCombinations = linearCombinations lm ++ [lc] }
-  , lrImage = lrImage lr ++ [lhs]
-  }
-  where
-    lm = lrLinearMap lr
-    lc = LinearCombination
-      { scalarIndices = map fst rhs
-      , elementIndices = map snd rhs
-      }
+appendEquation :: g -> [(Int, Int)] -> State (LinearRelation g) ()
+appendEquation lhs rhs = modify $ \lr ->
+  let lm = lrLinearMap lr
+      lc = LinearCombination
+        { scalarIndices = map fst rhs
+        , elementIndices = map snd rhs
+        }
+  in lr { lrLinearMap = lm { linearCombinations = linearCombinations lm ++ [lc] }
+        , lrImage = lrImage lr ++ [lhs]
+        }
 
 -- | Set group element values at the specified indices in the internal
 -- 'LinearMap'. These are the basis elements referenced by index from
 -- each 'LinearCombination'.
 --
 -- Corresponds to @set_elements()@ in the spec.
-setElements :: LinearRelation g -> [(Int, g)] -> LinearRelation g
-setElements lr updates = lr { lrLinearMap = lm { groupElements = newElems } }
-  where
-    lm = lrLinearMap lr
-    newElems = foldl setAt (groupElements lm) updates
-    setAt xs (i, x) = take i xs ++ [x] ++ drop (i + 1) xs
+setElements :: [(Int, g)] -> State (LinearRelation g) ()
+setElements updates = modify $ \lr ->
+  let lm = lrLinearMap lr
+      newElems = foldl setAt (groupElements lm) updates
+      setAt xs (i, x) = take i xs ++ [x] ++ drop (i + 1) xs
+  in lr { lrLinearMap = lm { groupElements = newElems } }

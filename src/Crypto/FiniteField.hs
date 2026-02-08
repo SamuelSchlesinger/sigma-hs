@@ -19,6 +19,8 @@ module Crypto.FiniteField
 import Data.ByteString (ByteString)
 import Data.Proxy (Proxy)
 
+import Crypto.Random (MonadRandom)
+
 data DeserializeError = DeserializeError String
   deriving (Show, Eq)
 
@@ -51,7 +53,7 @@ class Eq s => Scalar s where
   -- | Returns an element sampled uniformly at random from the scalar field.
   --
   -- Corresponds to @random()@ in the spec.
-  scalarRandom :: IO s
+  scalarRandom :: MonadRandom m => m s
 
   -- | Size in bytes of a single serialized scalar.
   --

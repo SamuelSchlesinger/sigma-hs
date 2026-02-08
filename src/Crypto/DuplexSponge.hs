@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- |
 -- Module: Crypto.DuplexSponge
 --
